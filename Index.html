@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Tasks Clone</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        google: {
+                            blue: '#1a73e8',
+                            blueHover: '#1557b0',
+                            lightBg: '#f8f9fa',
+                            darkBg: '#202124',
+                            darkSurface: '#292a2d',
+                            darkBorder: '#3c4043'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts & Material Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        body { font-family: 'Roboto', sans-serif; }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #5f6368; }
+        ::-webkit-scrollbar-thumb:hover { background: #bdc1c6; }
+    </style>
+</head>
+<body class="h-full bg-white dark:bg-google-darkBg text-gray-800 dark:text-gray-200 transition-colors duration-200 overflow-hidden flex flex-col">
+
+    <!-- Top Header -->
+    <header class="h-16 border-b border-gray-200 dark:border-google-darkBorder flex items-center justify-between px-4 shrink-0 select-none bg-white dark:bg-google-darkBg z-10">
+        <div class="flex items-center space-x-3">
+            <button id="sidebarToggle" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-google-darkSurface text-gray-600 dark:text-gray-300 transition-colors" title="Main menu">
+                <span class="material-icons-round">menu</span>
+            </button>
+            <div class="flex items-center space-x-2">
+                <svg class="w-8 h-8" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/>
+                </svg>
+                <span class="text-xl font-medium tracking-tight text-gray-700 dark:text-gray-100">Tasks</span>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <!-- Dark Mode Toggle -->
+            <button id="darkModeToggle" class="p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-google-darkSurface text-gray-600 dark:text-gray-300 transition-colors" title="Toggle dark mode">
+                <span class="material-icons-round" id="darkModeIcon">dark_mode</span>
+            </button>
+            <!-- Export JSON -->
+            <button id="exportBtn" class="p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-google-darkSurface text-gray-600 dark:text-gray-300 transition-colors" title="Export tasks (JSON)">
+                <span class="material-icons-round">download</span>
+            </button>
+            <!-- Import JSON trigger -->
+            <button id="importBtn" class="p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-google-darkSurface text-gray-600 dark:text-gray-300 transition-colors" title="Import tasks (JSON)">
+                <span class="material-icons-round">publish</span>
+            </button>
+            <input type="file" id="importFileInput" accept=".json" class="hidden">
+        </div>
+    </header>
+
+    <!-- Main App Container -->
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-gray-50 dark:bg-google-darkSurface border-r border-gray-200 dark:border-google-darkBorder flex flex-col shrink-0 transition-all duration-300 z-20 absolute md:relative h-full -translate-x-full md:translate-x-0">
+            <div class="p-3">
+                <button id="newListBtn" class="w-full flex items-center space-x-3 px-4 py-3 bg-white dark:bg-google-darkBg border border-gray-200 dark:border-google-darkBorder rounded-full shadow-sm hover:shadow transition-all text-google-blue font-medium text-sm">
+                    <span class="material-icons-round text-google-blue">add</span>
+                    <span>Create new list</span>
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto px-3 py-2 space-y-1" id="listsContainer">
+                <!-- Dynamic Lists will appear here -->
+            </div>
+        </aside>
+
+        <!-- Backdrop for mobile sidebar -->
+        <div id="sidebarBackdrop" class="fixed inset-0 bg-black/30 z-10 hidden md:hidden"></div>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col overflow-hidden bg-white dark:bg-google-darkBg relative">
+            
+            <!-- List Header & Filter -->
+            <div class="px-6 md:px-12 pt-8 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 dark:border-google-darkBorder/50">
+                <div class="flex items-center space-x-3">
+                    <h1 id="currentListTitle" class="text-2xl font-medium text-gray-800 dark:text-gray-100">My Tasks</h1>
+                    <div class="relative group">
+                        <button id="listMenuBtn" class="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-google-darkSurface text-gray-500 dark:text-gray-400">
+                            <span class="material-icons-round">more_vert</span>
+                        </button>
+                        <!-- List Options Dropdown -->
+                        <div id="listDropdown" class="hidden absolute left-0 mt-1 w-48 bg-white dark:bg-google-darkSurface border border-gray-200 dark:border-google-darkBorder rounded-lg shadow-lg py-1 z-30">
+                            <button id="renameListBtn" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-google-darkBg flex items-center space-x-2">
+                                <span class="material-icons-round text-base">edit</span>
+                                <span>Rename list</span>
+                            </button>
+                            <button id="deleteListBtn" class="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-google-darkBg flex items-center space-x-2">
+                                <span class="material-icons-round text-base">delete</span>
+                                <span>Delete list</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search / Filter -->
+                <div class="flex items-center space-x-2 bg-gray-100 dark:bg-google-darkSurface px-3 py-1.5 rounded-full w-full md:w-64">
+                    <span class="material-icons-round text-gray-400 text-sm">search</span>
+                    <input type="text" id="searchInput" placeholder="Search tasks..." class="bg-transparent border-none outline-none text-sm w-full text-gray-700 dark:text-gray-200">
+                </div>
+            </div>
+
+            <!-- Task List Display Container -->
+            <div class="flex-1 overflow-y-auto px-6 md:px-12 py-6 max-w-4xl w-full mx-auto pb-32">
+                
+                <!-- Add Task Quick Bar -->
+                <div class="mb-6">
+                    <button id="openTaskModalBtn" class="w-full bg-gray-50 dark:bg-google-darkSurface hover:bg-gray-100 dark:hover:bg-[#353739] border border-gray-200 dark:border-google-darkBorder rounded-xl p-4 flex items-center space-x-3 text-gray-500 dark:text-gray-400 shadow-sm transition-all text-left">
+                        <span class="material-icons-round text-google-blue">add</span>
+                        <span class="font-medium">Add a task</span>
+                    </button>
+                </div>
+
+                <!-- Uncompleted Tasks -->
+                <div id="activeTasksContainer" class="space-y-2 mb-8">
+                    <!-- Tasks injected here -->
+                </div>
+
+                <!-- Completed Section Toggle / Container -->
+                <div id="completedSection" class="hidden">
+                    <button id="toggleCompletedBtn" class="flex items-center space-x-2 text-sm font-medium text-gray-600 dark:text-gray-400 mb-4 hover:text-gray-900 dark:hover:text-gray-200">
+                        <span class="material-icons-round text-base transition-transform duration-200" id="completedArrow">chevron_right</span>
+                        <span>Completed (<span id="completedCount">0</span>)</span>
+                    </button>
+                    <div id="completedTasksContainer" class="space-y-2 hidden">
+                        <!-- Completed Tasks injected here -->
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div id="emptyState" class="hidden flex flex-col items-center justify-center py-16 text-center">
+                    <div class="w-32 h-32 mb-4 text-gray-300 dark:text-gray-600 flex items-center justify-center">
+                        <span class="material-icons-round text-7xl">task_alt</span>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-600 dark:text-gray-300 mb-1">No tasks here</h3>
+                    <p class="text-sm text-gray-400">Add a task to get things done.</p>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Task Modal (Create / Edit Task) -->
+    <div id="taskModal" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white dark:bg-google-darkSurface rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-gray-100 dark:border-google-darkBorder transform transition-all">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="modalTitle" class="text-lg font-medium text-gray-800 dark:text-gray-100">Add task</h3>
+                <button id="closeTaskModal" class="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-google-darkBg text-gray-500">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            
+            <form id="taskForm" class="space-y-4">
+                <input type="hidden" id="editTaskId">
+                <div>
+                    <input type="text" id="taskTitleInput" placeholder="Title" required class="w-full px-4 py-2.5 bg-gray-50 dark:bg-google-darkBg border border-gray-200 dark:border-google-darkBorder rounded-xl focus:ring-2 focus:ring-google-blue focus:outline-none text-gray-800 dark:text-gray-100 text-base">
+                </div>
+                <div>
+                    <textarea id="taskNotesInput" placeholder="Details" rows="3" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-google-darkBg border border-gray-200 dark:border-google-darkBorder rounded-xl focus:ring-2 focus:ring-google-blue focus:outline-none text-gray-800 dark:text-gray-100 text-sm resize-none"></textarea>
+                </div>
+                <div class="flex flex-wrap gap-4 items-center">
+                    <div class="flex items-center space-x-2 bg-gray-50 dark:bg-google-darkBg border border-gray-200 dark:border-google-darkBorder px-3 py-2 rounded-xl">
+                        <span class="material-icons-round text-gray-500 text-sm">event</span>
+                        <input type="date" id="taskDateInput" class="bg-transparent border-none outline-none text-sm text-gray-700 dark:text-gray-200 cursor-pointer">
+                    </div>
+                    
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="taskStarInput" class="w-4 h-4 text-google-blue rounded border-gray-300 focus:ring-google-blue">
+                        <label for="taskStarInput" class="text-sm font-medium text-gray-600 dark:text-gray-300 flex items-center space-x-1 cursor-pointer">
+                            <span class="material-icons-round text-amber-500 text-sm">star</span>
+                            <span>Mark as important</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Subtasks section inside modal -->
+                <div class="border-t border-gray-200 dark:border-google-darkBorder pt-4">
+                    <label class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2">Subtasks</label>
+                    <div id="modalSubtasksList" class="space-y-2 mb-3 max-h-36 overflow-y-auto">
+                        <!-- Subtasks injected here -->
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="text" id="modalSubtaskInput" placeholder="Add subtask" class="flex-1 px-3 py-2 bg-gray-50 dark:bg-google-darkBg border border-gray-200 dark:border-google-darkBorder rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-google-blue">
+                        <button type="button" id="modalAddSubtaskBtn" class="p-2 bg-gray-100 dark:bg-google-darkBg hover:bg-gray-200 rounded-xl text-gray-600 dark:text-gray-300">
+                            <span class="material-icons-round text-sm">add</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" id="cancelTaskModal" class="px-5 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-google-darkBg transition-colors">Cancel</button>
+                    <button type="submit" class="px-6 py-2.5 bg-google-blue hover:bg-google-blueHover text-white rounded-xl text-sm font-medium shadow transition-colors">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Rename List Modal -->
+    <div id="renameListModal" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white dark:bg-google-darkSurface rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-gray-100 dark:border-google-darkBorder">
+            <h3 class="text-lg font-medium text-gray-800 dark:text-gray-100 mb-4">Rename list</h3>
+            <input type="text" id="renameListInput" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-google-darkBg border border-gray-200 dark:border-google-darkBorder rounded-xl focus:ring-2 focus:ring-google-blue focus:outline-none text-gray-800 dark:text-gray-100 text-base mb-6" required>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelRenameBtn" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-google-darkBg">Cancel</button>
+                <button id="saveRenameBtn" class="px-5 py-2 bg-google-blue hover:bg-google-blueHover text-white rounded-xl text-sm font-medium shadow">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New List Modal -->
+    <div id="newListModal" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white dark:bg-google-darkSurface rounded-2xl shadow-2xl max-w-sm w-full p-6 border border-gray-100 dark:border-google-darkBorder">
+            <h3 class="text-lg font-medium text-gray-800 dark:text-gray-100 mb-4">Create new list</h3>
+            <input type="text" id="newListInput" placeholder="Name" class="w-full px-4 py-2.5 bg-gray-50 dark:bg-google-darkBg border border-gray-200 dark:border-google-darkBorder rounded-xl focus:ring-2 focus:ring-google-blue focus:outline-none text-gray-800 dark:text-gray-100 text-base mb-6" required>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelNewListBtn" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-google-darkBg">Cancel</button>
+                <button id="saveNewListBtn" class="px-5 py-2 bg-google-blue hover:bg-google-blueHover text-white rounded-xl text-sm font-medium shadow">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-5 py-3 rounded-xl shadow-xl text-sm font-medium transition-all duration-300 translate-y-20 opacity-0 z-50 flex items-center space-x-3">
+        <span id="toastMessage">Notification</span>
+    </div>
+
+    <!-- Application Logic Script -->
+    <script>
+        // Default State & Storage Initialization
+        const STORAGE_KEY = 'google_tasks_clone_data_v1';
+        
+        let appData = {
+            darkMode: false,
+            currentListId: 'default',
+            lists: [
+                { id: 'default', name: 'My Tasks' },
+                { id: 'starred', name: 'Starred', isSmart: true },
+                { id: 'completed_all', name: 'Completed', isSmart: true }
+            ],
+            tasks: []
+        };
+
+        let tempModalSubtasks = []; // holds subtasks while editing/creating in modal
+
+        // DOM Elements
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const darkModeIcon = document.getElementById('darkModeIcon');
+        const listsContainer = document.getElementById('listsContainer');
+        const currentListTitle = document.getElementById('currentListTitle');
+        const listMenuBtn = document.getElementById('listMenuBtn');
+        const listDropdown = document.getElementById('listDropdown');
+        const renameListBtn = document.getElementById('renameListBtn');
+        const deleteListBtn = document.getElementById('deleteListBtn');
+        const searchInput = document.getElementById('searchInput');
+        
+        const activeTasksContainer = document.getElementById('activeTasksContainer');
+        const completedSection = document.getElementById('completedSection');
+        const toggleCompletedBtn = document.getElementById('toggleCompletedBtn');
+        const completedArrow = document.getElementById('completedArrow');
+        const completedTasksContainer = document.getElementById('completedTasksContainer');
+        const completedCount = document.getElementById('completedCount');
+        const emptyState = document.getElementById('emptyState');
+        
+        const openTaskModalBtn = document.getElementById('openTaskModalBtn');
+        const taskModal = document.getElementById('taskModal');
+        const closeTaskModal = document.getElementById('closeTaskModal');
+        const cancelTaskModal = document.getElementById('cancelTaskModal');
+        const taskForm = document.getElementById('taskForm');
+        const modalTitle = document.getElementById('modalTitle');
+        const editTaskId = document.getElementById('editTaskId');
+        const taskTitleInput = document.getElementById('taskTitleInput');
+        const taskNotesInput = document.getElementById('taskNotesInput');
+        const taskDateInput = document.getElementById('taskDateInput');
+        const taskStarInput = document.getElementById('taskStarInput');
+        const modalSubtasksList = document.getElementById('modalSubtasksList');
+        const modalSubtaskInput = document.getElementById('modalSubtaskInput');
+        const modalAddSubtaskBtn = document.getElementById('modalAddSubtaskBtn');
+
+        const newListBtn = document.getElementById('newListBtn');
+        const newListModal = document.getElementById('newListModal');
+        const cancelNewListBtn = document.getElementById('cancelNewListBtn');
+        const saveNewListBtn = document.getElementById('saveNewListBtn');
+        const newListInput = document.getElementById('newListInput');
+
+        const renameListModal = document.getElementById('renameListModal');
+        const cancelRenameBtn = document.getElementById('cancelRenameBtn');
+        const saveRenameBtn = document.getElementById('saveRenameBtn');
+        const renameListInput = document.getElementById('renameListInput');
+
+        const exportBtn = document.getElementById('exportBtn');
+        const importBtn = document.getElementById('importBtn');
+        const importFileInput = document.getElementById('importFileInput');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+
+        // Init App
+        function init() {
+            loadData();
+            applyTheme();
+            renderLists();
+            renderTasks();
+            setupEventListeners();
+        }
+
+        // Local Storage Helpers
+        function loadData() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                try {
+                    appData = JSON.parse(stored);
+                } catch(e) {
+                    console.error('Failed to parse saved tasks data', e);
+                }
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        }
+
+        function showToast(msg) {
+            toastMessage.textContent = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Theme management
+        function applyTheme() {
+            if (appData.darkMode) {
+                document.documentElement.classList.add('dark');
+                darkModeIcon.textContent = 'light_mode';
+            } else {
+                document.documentElement.classList.remove('dark');
+                darkModeIcon.textContent = 'dark_mode';
+            }
+        }
+
+        // Event Listeners Setup
+        function setupEventListeners() {
+            // Dark mode toggle
+            darkModeToggle.addEventListener('click', () => {
+                appData.darkMode = !appData.darkMode;
+                applyTheme();
+                saveData();
+            });
+
+            // Sidebar mobile toggle
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('-translate-x-full');
+                sidebarBackdrop.classList.toggle('hidden');
+            });
+            sidebarBackdrop.addEventListener('click', () => {
+                sidebar.classList.add('-translate-x-full');
+                sidebarBackdrop.classList.add('hidden');
+            });
+
+            // List dropdown menu
+            listMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                listDropdown.classList.toggle('hidden');
+            });
+            document.addEventListener('click', () => {
+                listDropdown.classList.add('hidden');
+            });
+
+            // Search filter
+            searchInput.addEventListener('input', () => {
+                renderTasks();
+            });
+
+            // Open Task Modal for Create
+            openTaskModalBtn.addEventListener('click', () => {
+                openTaskModal();
+            });
+            closeTaskModal.addEventListener('click', closeTaskModalFn);
+            cancelTaskModal.addEventListener('click', closeTaskModalFn);
+
+            // Subtasks addition in modal
+            modalAddSubtaskBtn.addEventListener('click', addSubtaskFromModal);
+            modalSubtaskInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addSubtaskFromModal();
+                }
+            });
+
+            // Task Form Submit (Create or Update)
+            taskForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                saveTaskFromModal();
+            });
+
+            // New List Modal
+            newListBtn.addEventListener('click', () => {
+                newListInput.value = '';
+                newListModal.classList.remove('hidden');
+                newListInput.focus();
+            });
+            cancelNewListBtn.addEventListener('click', () => newListModal.classList.add('hidden'));
+            saveNewListBtn.addEventListener('click', createNewList);
+            newListInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') createNewList();
+            });
+
+            // Rename List Modal
+            renameListBtn.addEventListener('click', () => {
+                const list = appData.lists.find(l => l.id === appData.currentListId);
+                if (list && !list.isSmart) {
+                    renameListInput.value = list.name;
+                    renameListModal.classList.remove('hidden');
+                    renameListInput.focus();
+                }
+            });
+            cancelRenameBtn.addEventListener('click', () => renameListModal.classList.add('hidden'));
+            saveRenameBtn.addEventListener('click', saveRenamedList);
+
+            // Delete List
+            deleteListBtn.addEventListener('click', deleteCurrentList);
+
+            // Completed tasks toggle section
+            toggleCompletedBtn.addEventListener('click', () => {
+                const isHidden = completedTasksContainer.classList.toggle('hidden');
+                completedArrow.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(90deg)';
+            });
+
+            // JSON Export
+            exportBtn.addEventListener('click', () => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2));
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", dataStr);
+                downloadAnchor.setAttribute("download", `google_tasks_backup_${new Date().toISOString().slice(0,10)}.json`);
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+                showToast("Tasks exported successfully!");
+            });
+
+            // JSON Import Trigger
+            importBtn.addEventListener('click', () => importFileInput.click());
+            importFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    try {
+                        const imported = JSON.parse(evt.target.result);
+                        if (imported && Array.isArray(imported.lists) && Array.isArray(imported.tasks)) {
+                            appData = imported;
+                            saveData();
+                            applyTheme();
+                            renderLists();
+                            renderTasks();
+                            showToast("Tasks imported successfully!");
+                        } else {
+                            showToast("Invalid JSON structure.");
+                        }
+                    } catch(err) {
+                        showToast("Failed to parse JSON file.");
+                    }
+                    importFileInput.value = '';
+                };
+                reader.readAsText(file);
+            });
+        }
+
+        // Render Sidebar Lists
+        function renderLists() {
+            listsContainer.innerHTML = '';
+            
+            // Check if currentListId still exists
+            const listExists = appData.lists.some(l => l.id === appData.currentListId);
+            if (!listExists && appData.lists.length > 0) {
+                appData.currentListId = appData.lists[0].id;
+            }
+
+            appData.lists.forEach(list => {
+                const isActive = list.id === appData.currentListId;
+                const isSmart = list.isSmart;
+                
+                let iconName = 'list';
+                if (list.id === 'starred') iconName = 'star';
+                if (list.id === 'completed_all') iconName = 'task_alt';
+
+                const btn = document.createElement('button');
+                btn.className = `w-full flex items-center justify-between px-4 py-2.5 rounded-r-full text-sm font-medium transition-colors ${
+                    isActive 
+                        ? 'bg-blue-50 dark:bg-google-blue/20 text-google-blue dark:text-blue-400 font-semibold' 
+                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-google-darkBg'
+                }`;
+                
+                btn.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="material-icons-round text-lg">${iconName}</span>
+                        <span class="truncate">${escapeHTML(list.name)}</span>
+                    </div>
+                    ${!isSmart ? `<span class="text-xs text-gray-400">${appData.tasks.filter(t => t.listId === list.id && !t.completed).length}</span>` : ''}
+                `;
+
+                btn.addEventListener('click', () => {
+                    appData.currentListId = list.id;
+                    if (window.innerWidth < 768) {
+                        sidebar.classList.add('-translate-x-full');
+                        sidebarBackdrop.classList.add('hidden');
+                    }
+                    renderLists();
+                    renderTasks();
+                });
+
+                listsContainer.appendChild(btn);
+            });
+
+            // Update Header Title & Menu visibility
+            const currentList = appData.lists.find(l => l.id === appData.currentListId);
+            if (currentList) {
+                currentListTitle.textContent = currentList.name;
+                if (currentList.isSmart) {
+                    listMenuBtn.classList.add('hidden');
+                    if(currentList.id === 'starred') {
+                        openTaskModalBtn.parentElement.style.display = 'none';
+                    } else if(currentList.id === 'completed_all') {
+                        openTaskModalBtn.parentElement.style.display = 'none';
+                    } else {
+                        openTaskModalBtn.parentElement.style.display = 'block';
+                    }
+                } else {
+                    listMenuBtn.classList.remove('hidden');
+                    openTaskModalBtn.parentElement.style.display = 'block';
+                }
+            }
+        }
+
+        // Render Tasks Main View
+        function renderTasks() {
+            activeTasksContainer.innerHTML = '';
+            completedTasksContainer.innerHTML = '';
+
+            const currentList = appData.lists.find(l => l.id === appData.currentListId);
+            const searchQuery = searchInput.value.toLowerCase().trim();
+
+            let tasksToDisplay = [];
+
+            if (!currentList) return;
+
+            if (currentList.id === 'starred') {
+                tasksToDisplay = appData.tasks.filter(t => t.starred);
+            } else if (currentList.id === 'completed_all') {
+                tasksToDisplay = appData.tasks.filter(t => t.completed);
+            } else {
+                tasksToDisplay = appData.tasks.filter(t => t.listId === currentList.id);
+            }
+
+            // Apply Search Query filter if present
+            if (searchQuery) {
+                tasksToDisplay = tasksToDisplay.filter(t => 
+                    t.title.toLowerCase().includes(searchQuery) || 
+                    (t.notes && t.notes.toLowerCase().includes(searchQuery)) ||
+                    (t.subtasks && t.subtasks.some(st => st.title.toLowerCase().includes(searchQuery)))
+                );
+            }
+
+            const activeTasks = tasksToDisplay.filter(t => !t.completed);
+            const completedTasks = tasksToDisplay.filter(t => t.completed);
+
+            // Render Active Tasks
+            if (activeTasks.length === 0 && completedTasks.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            activeTasks.forEach(task => {
+                activeTasksContainer.appendChild(createTaskElement(task));
+            });
+
+            // Render Completed Tasks
+            if (completedTasks.length > 0) {
+                completedSection.classList.remove('hidden');
+                completedCount.textContent = completedTasks.length;
+                completedTasks.forEach(task => {
+                    completedTasksContainer.appendChild(createTaskElement(task));
+                });
+            } else {
+                completedSection.classList.add('hidden');
+            }
+        }
+
+        // Task Item DOM Generator
+        function createTaskElement(task) {
+            const div = document.createElement('div');
+            div.className = `group bg-white dark:bg-google-darkSurface border border-gray-200 dark:border-google-darkBorder rounded-xl p-4 shadow-sm hover:shadow transition-all flex flex-col space-y-2 ${task.completed ? 'opacity-70' : ''}`;
+
+            const dueDateFormatted = task.dueDate ? formatDate(task.dueDate) : '';
+            const isOverdue = task.dueDate && new Date(task.dueDate) < new Date().setHours(0,0,0,0) && !task.completed;
+
+            let subtasksHTML = '';
+            if (task.subtasks && task.subtasks.length > 0) {
+                const completedSub = task.subtasks.filter(st => st.completed).length;
+                subtasksHTML = `
+                    <div class="mt-2 pl-8 space-y-1.5 border-t border-gray-100 dark:border-google-darkBorder/50 pt-2">
+                        <div class="text-xs text-gray-400 mb-1">Subtasks: ${completedSub}/${task.subtasks.length}</div>
+                        ${task.subtasks.map((st, idx) => `
+                            <div class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
+                                <input type="checkbox" ${st.completed ? 'checked' : ''} data-task-id="${task.id}" data-sub-idx="${idx}" class="subtask-checkbox w-3.5 h-3.5 text-google-blue rounded border-gray-300 cursor-pointer">
+                                <span class="${st.completed ? 'line-through text-gray-400' : ''}">${escapeHTML(st.title)}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            div.innerHTML = `
+                <div class="flex items-start justify-between gap-3">
+                    <div class="flex items-start space-x-3 flex-1 min-w-0">
+                        <input type="checkbox" ${task.completed ? 'checked' : ''} data-id="${task.id}" class="task-checkbox mt-1 w-5 h-5 text-google-blue rounded-md border-gray-300 cursor-pointer shrink-0">
+                        <div class="flex-1 min-w-0 cursor-pointer task-edit-trigger" data-id="${task.id}">
+                            <h4 class="text-base font-medium text-gray-800 dark:text-gray-100 break-words ${task.completed ? 'line-through text-gray-400 dark:text-gray-500' : ''}">${escapeHTML(task.title)}</h4>
+                            ${task.notes ? `<p class="text-sm text-gray-500 dark:text-gray-400 mt-1 break-words line-clamp-2">${escapeHTML(task.notes)}</p>` : ''}
+                            
+                            <div class="flex flex-wrap items-center gap-3 mt-2">
+                                ${dueDateFormatted ? `
+                                    <div class="flex items-center space-x-1 text-xs font-medium px-2 py-0.5 rounded-full ${isOverdue ? 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400' : 'bg-gray-100 dark:bg-google-darkBg text-gray-600 dark:text-gray-400'}">
+                                        <span class="material-icons-round text-xs">event</span>
+                                        <span>${dueDateFormatted}</span>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-1 shrink-0">
+                        <button data-id="${task.id}" class="star-btn p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-google-darkBg ${task.starred ? 'text-amber-500' : 'text-gray-400 hover:text-gray-600'}" title="Star task">
+                            <span class="material-icons-round text-xl">${task.starred ? 'star' : 'star_border'}</span>
+                        </button>
+                        <button data-id="${task.id}" class="delete-task-btn p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-google-darkBg text-gray-400 hover:text-red-600" title="Delete task">
+                            <span class="material-icons-round text-xl">delete</span>
+                        </button>
+                    </div>
+                </div>
+                ${subtasksHTML}
+            `;
+
+            // Event Listeners for Task item elements
+            const checkbox = div.querySelector('.task-checkbox');
+            checkbox.addEventListener('change', () => toggleTaskCompletion(task.id));
+
+            const starBtn = div.querySelector('.star-btn');
+            starBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleTaskStar(task.id);
+            });
+
+            const deleteBtn = div.querySelector('.delete-task-btn');
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteTask(task.id);
+            });
+
+            const editTrigger = div.querySelector('.task-edit-trigger');
+            editTrigger.addEventListener('click', () => openTaskModal(task));
+
+            // Subtask Checkboxes
+            div.querySelectorAll('.subtask-checkbox').forEach(subCb => {
+                subCb.addEventListener('change', (e) => {
+                    const tid = e.target.getAttribute('data-task-id');
+                    const sidx = parseInt(e.target.getAttribute('data-sub-idx'));
+                    toggleSubtaskCompletion(tid, sidx);
+                });
+            });
+
+            return div;
+        }
+
+        // Task Actions
+        function toggleTaskCompletion(id) {
+            const task = appData.tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                saveData();
+                renderLists();
+                renderTasks();
+            }
+        }
+
+        function toggleTaskStar(id) {
+            const task = appData.tasks.find(t => t.id === id);
+            if (task) {
+                task.starred = !task.starred;
+                saveData();
+                renderTasks();
+            }
+        }
+
+        function deleteTask(id) {
+            appData.tasks = appData.tasks.filter(t => t.id !== id);
+            saveData();
+            renderLists();
+            renderTasks();
+            showToast("Task deleted");
+        }
+
+        function toggleSubtaskCompletion(taskId, subIndex) {
+            const task = appData.tasks.find(t => t.id === taskId);
+            if (task && task.subtasks && task.subtasks[subIndex]) {
+                task.subtasks[subIndex].completed = !task.subtasks[subIndex].completed;
+                saveData();
+                renderTasks();
+            }
+        }
+
+        // Task Modal Functions (Create / Edit)
+        function openTaskModal(task = null) {
+            taskForm.reset();
+            tempModalSubtasks = [];
+            
+            if (task) {
+                modalTitle.textContent = 'Edit task';
+                editTaskId.value = task.id;
+                taskTitleInput.value = task.title;
+                taskNotesInput.value = task.notes || '';
+                taskDateInput.value = task.dueDate || '';
+                taskStarInput.checked = !!task.starred;
+                if (task.subtasks) {
+                    tempModalSubtasks = JSON.parse(JSON.stringify(task.subtasks));
+                }
+            } else {
+                modalTitle.textContent = 'Add task';
+                editTaskId.value = '';
+                taskStarInput.checked = false;
+            }
+            
+            renderModalSubtasks();
+            taskModal.classList.remove('hidden');
+            taskTitleInput.focus();
+        }
+
+        function closeTaskModalFn() {
+            taskModal.classList.add('hidden');
+        }
+
+        function addSubtaskFromModal() {
+            const val = modalSubtaskInput.value.trim();
+            if (val) {
+                tempModalSubtasks.push({ title: val, completed: false });
+                modalSubtaskInput.value = '';
+                renderModalSubtasks();
+            }
+        }
+
+        function renderModalSubtasks() {
+            modalSubtasksList.innerHTML = '';
+            tempModalSubtasks.forEach((st, idx) => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between bg-gray-50 dark:bg-google-darkBg px-3 py-1.5 rounded-xl text-sm';
+                item.innerHTML = `
+                    <div class="flex items-center space-x-2 truncate">
+                        <span class="material-icons-round text-gray-400 text-sm">subdirectory_arrow_right</span>
+                        <span class="truncate text-gray-700 dark:text-gray-200">${escapeHTML(st.title)}</span>
+                    </div>
+                    <button type="button" data-idx="${idx}" class="remove-modal-sub text-gray-400 hover:text-red-500">
+                        <span class="material-icons-round text-sm">close</span>
+                    </button>
+                `;
+                item.querySelector('.remove-modal-sub').addEventListener('click', () => {
+                    tempModalSubtasks.splice(idx, 1);
+                    renderModalSubtasks();
+                });
+                modalSubtasksList.appendChild(item);
+            });
+        }
+
+        function saveTaskFromModal() {
+            const title = taskTitleInput.value.trim();
+            if (!title) return;
+
+            const notes = taskNotesInput.value.trim();
+            const dueDate = taskDateInput.value;
+            const starred = taskStarInput.checked;
+            const taskId = editTaskId.value;
+
+            if (taskId) {
+                // Update
+                const task = appData.tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.title = title;
+                    task.notes = notes;
+                    task.dueDate = dueDate;
+                    task.starred = starred;
+                    task.subtasks = [...tempModalSubtasks];
+                }
+                showToast("Task updated");
+            } else {
+                // Create
+                let targetListId = appData.currentListId;
+                if (targetListId === 'starred' || targetListId === 'completed_all') {
+                    // Fallback to first regular list
+                    const firstReg = appData.lists.find(l => !l.isSmart);
+                    targetListId = firstReg ? firstReg.id : 'default';
+                }
+
+                const newTask = {
+                    id: 'task_' + Date.now() + Math.random().toString(36).substring(2, 7),
+                    listId: targetListId,
+                    title: title,
+                    notes: notes,
+                    dueDate: dueDate,
+                    starred: starred,
+                    completed: false,
+                    subtasks: [...tempModalSubtasks]
+                };
+                appData.tasks.push(newTask);
+                showToast("Task created");
+            }
+
+            saveData();
+            renderLists();
+            renderTasks();
+            closeTaskModalFn();
+        }
+
+        // List Management Functions
+        function createNewList() {
+            const name = newListInput.value.trim();
+            if (!name) return;
+
+            const newList = {
+                id: 'list_' + Date.now() + Math.random().toString(36).substring(2, 7),
+                name: name
+            };
+
+            appData.lists.push(newList);
+            appData.currentListId = newList.id;
+            saveData();
+            renderLists();
+            renderTasks();
+            newListModal.classList.add('hidden');
+            showToast("List created");
+        }
+
+        function saveRenamedList() {
+            const name = renameListInput.value.trim();
+            if (!name) return;
+
+            const list = appData.lists.find(l => l.id === appData.currentListId);
+            if (list && !list.isSmart) {
+                list.name = name;
+                saveData();
+                renderLists();
+                showToast("List renamed");
+            }
+            renameListModal.classList.add('hidden');
+        }
+
+        function deleteCurrentList() {
+            const listId = appData.currentListId;
+            const list = appData.lists.find(l => l.id === listId);
+            if (!list || list.isSmart) return;
+
+            if (appData.lists.filter(l => !l.isSmart).length <= 1) {
+                showToast("You must keep at least one list.");
+                listDropdown.classList.add('hidden');
+                return;
+            }
+
+            if (window.confirm(`Delete list "${list.name}" and all its tasks?`)) {
+                appData.lists = appData.lists.filter(l => l.id !== listId);
+                appData.tasks = appData.tasks.filter(t => t.listId !== listId);
+                
+                const firstReg = appData.lists.find(l => !l.isSmart);
+                appData.currentListId = firstReg ? firstReg.id : 'default';
+
+                saveData();
+                renderLists();
+                renderTasks();
+                showToast("List deleted");
+            }
+            listDropdown.classList.add('hidden');
+        }
+
+        // Utilities
+        function formatDate(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00');
+            const options = { month: 'short', day: 'numeric' };
+            return d.toLocaleDateString(undefined, options);
+        }
+
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        // Run application on load
+        window.onload = init;
+    </script>
+</body>
+</html>
